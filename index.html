@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Inventory Monitoring System</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#222}
+header{background:#17324d;color:white;padding:18px;text-align:center}
+header h1{margin:0;font-size:22px}header p{margin:6px 0 0;font-size:13px}
+nav{display:flex;overflow:auto;background:white;border-bottom:1px solid #ddd}
+nav button{border:0;background:white;padding:14px 16px;white-space:nowrap;font-weight:bold;color:#345;cursor:pointer}
+nav button.active{color:#17324d;border-bottom:3px solid #17324d}
+main{max-width:1000px;margin:auto;padding:18px}.page{display:none}.page.active{display:block}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.card{background:white;padding:16px;border-radius:10px;box-shadow:0 1px 5px #0001}.card b{display:block;font-size:25px;margin-top:6px}
+.panel{background:white;padding:18px;border-radius:10px;box-shadow:0 1px 5px #0001;margin-bottom:18px}
+h2{margin-top:0;font-size:20px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+label{font-size:13px;font-weight:bold}input,select{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:7px}
+.btn{border:0;border-radius:7px;padding:10px 14px;cursor:pointer;font-weight:bold;margin-top:12px}
+.primary{background:#17324d;color:white}.danger{background:#b42318;color:white}.muted{background:#e9edf1}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}th{background:#f1f4f6}
+.tablewrap{overflow:auto}.status{padding:4px 8px;border-radius:20px;font-size:12px;font-weight:bold}
+.ok{background:#dff4e4;color:#176b2c}.low{background:#fff0c2;color:#8a5b00}.out{background:#fbdada;color:#9a1b1b}
+.small{font-size:12px;color:#667}.actions button{margin:2px;padding:6px 8px;border:0;border-radius:5px;cursor:pointer}
+@media(max-width:700px){.cards{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}main{padding:12px}table{min-width:650px}}
+</style>
+</head>
+<body>
+<header><h1>Product Inventory Monitoring System</h1><p>Small Business Inventory Management</p></header>
+<nav>
+<button class="active" onclick="showPage('dashboard',this)">Dashboard</button>
+<button onclick="showPage('products',this)">Products</button>
+<button onclick="showPage('stockin',this)">Stock In</button>
+<button onclick="showPage('stockout',this)">Stock Out</button>
+<button onclick="showPage('history',this)">History</button>
+</nav>
+<main>
+<section id="dashboard" class="page active">
+<div class="cards">
+<div class="card">Total Products<b id="totalProducts">0</b></div>
+<div class="card">Total Stock<b id="totalStock">0</b></div>
+<div class="card">Low Stock<b id="lowStock">0</b></div>
+<div class="card">Out of Stock<b id="outStock">0</b></div>
+</div>
+<div class="panel"><h2>Inventory Summary</h2><div id="summary"></div></div>
+</section>
+
+<section id="products" class="page">
+<div class="panel"><h2>Add Product</h2>
+<div class="grid">
+<div><label>Product Name</label><input id="pname" placeholder="e.g. Notebook"></div>
+<div><label>Category</label><input id="pcat" placeholder="e.g. School Supplies"></div>
+<div><label>Price (₱)</label><input id="pprice" type="number" min="0" placeholder="0"></div>
+<div><label>Initial Stock</label><input id="pstock" type="number" min="0" placeholder="0"></div>
+<div><label>Supplier</label><input id="psupplier" placeholder="Supplier name"></div>
+<div><label>Minimum Stock Level</label><input id="pmin" type="number" min="0" value="5"></div>
+</div><button class="btn primary" onclick="addProduct()">Add Product</button></div>
+<div class="panel"><h2>Product List</h2><div class="tablewrap"><table><thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Supplier</th><th>Action</th></tr></thead><tbody id="productTable"></tbody></table></div></div>
+</section>
+
+<section id="stockin" class="page">
+<div class="panel"><h2>Record Stock In</h2>
+<label>Product</label><select id="inProduct"></select>
+<label>Quantity Added</label><input id="inQty" type="number" min="1" placeholder="Quantity">
+<label>Supplier</label><input id="inSupplier" placeholder="Supplier name">
+<button class="btn primary" onclick="stockIn()">Save Stock In</button>
+</div></section>
+
+<section id="stockout" class="page">
+<div class="panel"><h2>Record Stock Out</h2>
+<label>Product</label><select id="outProduct"></select>
+<label>Quantity Removed</label><input id="outQty" type="number" min="1" placeholder="Quantity">
+<label>Reason</label><input id="outReason" placeholder="e.g. Sold">
+<button class="btn primary" onclick="stockOut()">Save Stock Out</button>
+</div></section>
+
+<section id="history" class="page">
+<div class="panel"><h2>Inventory History</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Type</th><th>Product</th><th>Quantity</th><th>Details</th></tr></thead><tbody id="historyTable"></tbody></table></div>
+<button class="btn danger" onclick="clearHistory()">Clear History</button></div>
+</section>
+</main>
+<script>
+let products=JSON.parse(localStorage.getItem('inventoryProducts')||'[]');
+let history=JSON.parse(localStorage.getItem('inventoryHistory')||'[]');
+function save(){localStorage.setItem('inventoryProducts',JSON.stringify(products));localStorage.setItem('inventoryHistory',JSON.stringify(history));render();}
+function showPage(id,btn){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');}
+function addProduct(){
+ let name=pname.value.trim(), cat=pcat.value.trim(), price=+pprice.value, stock=+pstock.value, supplier=psupplier.value.trim(), min=+pmin.value;
+ if(!name){alert('Please enter a product name.');return}
+ products.push({id:Date.now(),name,cat,price,stock,supplier,min}); 
+ history.unshift({date:new Date().toLocaleString(),type:'Product Added',name,qty:stock,details:'Initial stock'});
+ ['pname','pcat','pprice','pstock','psupplier'].forEach(id=>document.getElementById(id).value='');pmin.value=5;save();alert('Product added successfully.');
+}
+function status(p){return p.stock===0?'<span class="status out">Out of Stock</span>':p.stock<=p.min?'<span class="status low">Low Stock</span>':'<span class="status ok">In Stock</span>'}
+function render(){
+ totalProducts.textContent=products.length;totalStock.textContent=products.reduce((a,p)=>a+p.stock,0);lowStock.textContent=products.filter(p=>p.stock>0&&p.stock<=p.min).length;outStock.textContent=products.filter(p=>p.stock===0).length;
+ productTable.innerHTML=products.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.cat)}</td><td>₱${p.price.toFixed(2)}</td><td>${p.stock}</td><td>${status(p)}</td><td>${esc(p.supplier)}</td><td class="actions"><button class="muted" onclick="editProduct(${p.id})">Edit</button><button class="danger" onclick="deleteProduct(${p.id})">Delete</button></td></tr>`).join('')||'<tr><td colspan="7">No products yet.</td></tr>';
+ let opts=products.map(p=>`<option value="${p.id}">${esc(p.name)} — Stock: ${p.stock}</option>`).join('');inProduct.innerHTML=opts;outProduct.innerHTML=opts;
+ historyTable.innerHTML=history.map(h=>`<tr><td>${h.date}</td><td>${h.type}</td><td>${esc(h.name)}</td><td>${h.qty}</td><td>${esc(h.details)}</td></tr>`).join('')||'<tr><td colspan="5">No history yet.</td></tr>';
+ let low=products.filter(p=>p.stock<=p.min);summary.innerHTML=low.length?'<p><b>Products needing attention:</b></p>'+low.map(p=>`<p>• ${esc(p.name)} — ${p.stock===0?'Out of stock':p.stock+' left (minimum '+p.min+')'}</p>`).join(''):'<p>All products have sufficient stock.</p>';
+}
+function stockIn(){
+ let p=products.find(x=>x.id==inProduct.value),q=+inQty.value;if(!p||q<1){alert('Select a product and enter a valid quantity.');return}
+ p.stock+=q;history.unshift({date:new Date().toLocaleString(),type:'Stock In',name:p.name,qty:q,details:inSupplier.value.trim()||p.supplier||'New stock'});inQty.value='';inSupplier.value='';save();alert('Stock added successfully.');
+}
+function stockOut(){
+ let p=products.find(x=>x.id==outProduct.value),q=+outQty.value;if(!p||q<1){alert('Select a product and enter a valid quantity.');return}if(q>p.stock){alert('Not enough stock available.');return}
+ p.stock-=q;history.unshift({date:new Date().toLocaleString(),type:'Stock Out',name:p.name,qty:q,details:outReason.value.trim()||'Sold'});outQty.value='';outReason.value='';save();alert('Stock removed successfully.');
+}
+function editProduct(id){let p=products.find(x=>x.id===id);let n=prompt('Product name:',p.name);if(n===null)return;let price=prompt('Price:',p.price);let min=prompt('Minimum stock level:',p.min);p.name=n.trim()||p.name;p.price=Math.max(0,+price||0);p.min=Math.max(0,+min||0);save();}
+function deleteProduct(id){if(confirm('Delete this product?')){products=products.filter(p=>p.id!==id);save();}}
+function clearHistory(){if(confirm('Clear all inventory history?')){history=[];save();}}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+render();
+</script>
+</body>
+</html>
